@@ -1,0 +1,33 @@
+{
+    "files.associations": {
+        "chrono": "c",
+        "text_encoding": "c",
+        "typeinfo": "c",
+        "player.h": "c",
+        "config.h": "c",
+        "buffer.h": "c",
+        "unordered_map": "c",
+        "fstream": "c",
+        "istream": "c",
+        "numeric": "c",
+        "sstream": "c",
+        "stdint.h": "c",
+        "globals.h": "c",
+        "epoll.h": "c",
+        "init.h": "c",
+        "asyncio.h": "c",
+        "io_context": "c",
+        "vars.h": "c",
+        "bitset": "c",
+        "string_view": "c",
+        "__locale": "c",
+        "string": "c",
+        "status.h": "c",
+        "buffer": "c",
+        "logger.h": "c",
+        "md5.h": "c",
+        "string.h": "c",
+        "packet.h": "c"
+    },
+    "C_Cpp.dimInactiveRegions": false
+}
