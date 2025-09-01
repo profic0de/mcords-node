@@ -19,7 +19,7 @@ void generate_offline_uuid(const char *username, uint8_t out_uuid[16]);
 int connect_server_fd(const char *ip, int port, int fd, int epoll_fd);
 int get_ip_address(const char *domain, char *out);
 
-void login(int fd, Buffer *buffer) {
+void slogin(int fd, Buffer *buffer) {
     Player *p = players[fd];
     int error = 0;
     START_PLAYER(p);

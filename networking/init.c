@@ -20,9 +20,10 @@ void onPacket(int fd, Buffer *buffer) {
     if (!p) return;
 
     // printf("fd=%d, p=%p, p->label=%p\n", fd, (void*)p, p ? p->label : NULL);
+    if (player_get_int(p, "loop1", 0)) goto LOOP;
 
     int error = 0;
-    START_PLAYER(p);
+    // START_PLAYER(p);
     int packet_id = parse_varint(buffer, &error);
 
     if (packet_id != 0) {
@@ -44,10 +45,13 @@ void onPacket(int fd, Buffer *buffer) {
     player_set_int(p, "version", protocol);
     player_set_int(p, "intent", intent);
 
-    await;
+    // await;
     // printf("packet id is: %i\n", parse_varint(buffer, &error));
+    player_set_int(p, "loop1", 1);
+
+    LOOP:
     game_player_init(fd, buffer);
-    again;
+    return;
     printf("END\n");
     // printf("%02X\n", (unsigned char)buffer->buffer[0]);
 
@@ -59,5 +63,5 @@ void onPacket(int fd, Buffer *buffer) {
     //     printf("%02X ", (unsigned char)buffer->buffer[i]);
     // printf("\n");
     // await(p->label);
-    END_PLAYER;
+    // END_PLAYER;
 }
