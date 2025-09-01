@@ -1,3 +1,4 @@
+#include "networking/buffer.h"
 #include "player.h"
 #include <stdlib.h>
 #include <string.h>
@@ -23,6 +24,8 @@ static PlayerKV* find_or_create(PlayerData* pd, const char* key) {
 // Player core
 // -------------------------
 
+#include "networking/encryption.h"
+
 Player* player_create(int id, const char* name) {
     Player* p = malloc(sizeof(Player));
     if (!p) return NULL;
@@ -39,6 +42,8 @@ Player* player_create(int id, const char* name) {
     p->name[sizeof(p->name) - 1] = '\0';
 
     p->data = calloc(1, sizeof(PlayerData));
+
+    p->context = RSA_init();
     return p;
 }
 
@@ -147,4 +152,61 @@ void player_print_data(Player* p) {
                 break;
         }
     }
+}
+
+// -------------------------
+// Player data popers -_-
+// -------------------------
+
+int player_pop_int(Player* p, const char* key, int fallback) {
+    if (!p || !p->data) return fallback;
+
+    for (int i = 0; i < p->data->count; ++i) {
+        PlayerKV* kv = &p->data->entries[i];
+        if (strcmp(kv->key, key) == 0 && kv->type == TYPE_INT) {
+            int val = kv->data.i;
+
+            // Shift entries down to remove
+            memmove(&p->data->entries[i], &p->data->entries[i + 1],
+                    (p->data->count - i - 1) * sizeof(PlayerKV));
+            p->data->count--;
+            return val;
+        }
+    }
+    return fallback;
+}
+
+float player_pop_float(Player* p, const char* key, float fallback) {
+    if (!p || !p->data) return fallback;
+
+    for (int i = 0; i < p->data->count; ++i) {
+        PlayerKV* kv = &p->data->entries[i];
+        if (strcmp(kv->key, key) == 0 && kv->type == TYPE_FLOAT) {
+            float val = kv->data.f;
+
+            memmove(&p->data->entries[i], &p->data->entries[i + 1],
+                    (p->data->count - i - 1) * sizeof(PlayerKV));
+            p->data->count--;
+            return val;
+        }
+    }
+    return fallback;
+}
+
+char* player_pop_string(Player* p, const char* key, const char* fallback) {
+    if (!p || !p->data) return strdup(fallback);
+
+    for (int i = 0; i < p->data->count; ++i) {
+        PlayerKV* kv = &p->data->entries[i];
+        if (strcmp(kv->key, key) == 0 && kv->type == TYPE_STRING) {
+            char* val = kv->data.s; // take ownership of string
+
+            // Shift entries down to remove
+            memmove(&p->data->entries[i], &p->data->entries[i + 1],
+                    (p->data->count - i - 1) * sizeof(PlayerKV));
+            p->data->count--;
+            return val;  // caller must free
+        }
+    }
+    return strdup(fallback);  // return copy of fallback
 }

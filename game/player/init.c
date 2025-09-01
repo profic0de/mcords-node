@@ -9,6 +9,8 @@
 #include "intentions/status/status.h"
 #include "intentions/play/init.h"
 
+#include "utils/logger.h"
+
 void game_player_init(int fd, Buffer *buffer) {
     Player *p = players[fd];
     if (!p) return;

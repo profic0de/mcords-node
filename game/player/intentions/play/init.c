@@ -12,6 +12,7 @@
 
 #include "game/player/intentions/play/states/login.h"
 void handle_play(int fd, Buffer *buffer) {
+
     if (!bit_get(ticking_fds,fd)) {++ticking_fdc;bit_set(ticking_fds,fd,1);}
     const char *state = player_get_string(players[fd],"state","");
     if (!strcmp(state,"login")) {

@@ -30,12 +30,15 @@ int parse_varint(Buffer *buf, int *error) {
     return result;
 }
 
+#include "utils/logger.h"
+
 char *parse_string(Buffer *buf, int max_lenght ,int *error) {
     // *error = 0;
     int te = *error;
     int str_len = parse_varint(buf, error);
     if (str_len > buf->length || str_len <= 0 || str_len > max_lenght || *error-te > 0) {
         *error += 1;
+        // LOG("String parse error: length %d, buffer length %d, max length %d, error %d", str_len, buf->length, max_lenght, *error);
         return NULL;
     }
 
@@ -43,6 +46,7 @@ char *parse_string(Buffer *buf, int max_lenght ,int *error) {
     for (int i = 0; i < str_len; i++) {
         if (buf->buffer[i] == '\0') {
             *error += 1;
+            // LOG("String parse error: null byte found at position %d", i);
             return NULL;
         }
     }
@@ -51,6 +55,7 @@ char *parse_string(Buffer *buf, int max_lenght ,int *error) {
     char *str = malloc(str_len + 1);
     if (!str) {
         *error += 1;
+        // LOG("String parse error: memory allocation failed");
         return NULL;
     }
 
@@ -107,25 +112,32 @@ Buffer *parse_prefixed_bytes_array(Buffer *buf, int max_length, int optional, in
     int e = 0;
     Buffer *result = init_buffer();
 
-    if (optional) optional = parse_integer(buf, 1, 1, &e);
-    if (!optional || e) {
-        // (*error)++;
-        return result;
-    }
+    int o = 1;
+    if (optional) o = parse_varint(buf, &e);
+    if (!o || e) return result;
 
     int length = parse_varint(buf, &e);
-    if (length > max_length || e) {
+    LOG("Varint: %d", length);
+    if (e) {
         (*error)++;
         return result;
     }
 
-    if (buf->length < length) {  // Assuming buf has `length` and `data` fields
+    // Only check max_length if it's non-negative
+    if (max_length >= 0 && length > max_length) {
         (*error)++;
         return result;
     }
 
+    if (buf->length < length) {
+        (*error)++;
+        LOG("Buffer too short: needed %d, have %d", length, buf->length);
+        return result;
+    }
+
+    LOG("Parsed byte array of length %d", length);
     append_to_buffer(result, buf->buffer, length);
-    cut_buffer(buf, length);  // Remove the consumed bytes from the original buffer
+    cut_buffer(buf, length);
 
     return result;
 }

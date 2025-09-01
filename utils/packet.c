@@ -120,7 +120,7 @@ int packet_send(Buffer *buffer, int fd) {
     Buffer *temp = init_buffer();
     build_varint(temp, buffer->length);
     prepend_to_buffer(buffer, temp->buffer, temp->length);
-    free(temp->buffer);
+    free_buffer(temp);
 
     packet_queue_push(buffer, fd);
 

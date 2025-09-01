@@ -2,17 +2,38 @@ import subprocess
 import sys
 import os
 
+# --- CONFIG ---
+BLACKLIST = [
+    "test.c",
+    "auth.c",
+    "mem.c"
+]
+# --------------
+
+def is_blacklisted(path):
+    """Check if a file or folder is in the blacklist (relative path)."""
+    rel_path = os.path.relpath(path, ".")
+    for item in BLACKLIST:
+        if item.endswith("/"):  # Folder
+            if rel_path.startswith(item):
+                return True
+        else:  # Exact file
+            if rel_path == item:
+                return True
+    return False
+
 def find_c_sources():
     return sorted(
         os.path.join(root, file)
         for root, _, files in os.walk('.')
         for file in files
-        if file.endswith('.c')
+        if file.endswith('.c') and not is_blacklisted(os.path.join(root, file))
     )
 
 def compile_sources(sources, output):
     print("📦 Compiling sources...")
-    cmd = ["gcc", "-I.", "-Wall", "-Wno-deprecated-declarations", "-O2", "-o", output, "-L/usr/lib", "-lcrypto", "-lssl", "-lresolv"] + sources
+    cmd = ["gcc", "-g","-fsanitize=leak", "-I.", "-Wall", "-Wno-deprecated-declarations", "-o", output,
+           "-L/usr/lib", "-lcrypto", "-lssl", "-lresolv", "-lcurl", "-Dprintf(...)=my_printf(__VA_ARGS__)"] + sources
     result = subprocess.run(cmd)
     return result.returncode == 0
 
@@ -21,7 +42,7 @@ def main():
     sources = find_c_sources()
 
     if not sources:
-        print("❌ No .c source files found.")
+        print("❌ No .c source files found (or all are blacklisted).")
         return
 
     print(f"🔍 Found sources: {', '.join(sources)}")

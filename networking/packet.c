@@ -8,18 +8,37 @@
 #include "packet.h"
 #include "buffer.h"
 
+#include "utils/globals.h"
+#include "utils/player.h"
+
+#include "networking/encryption.h"
+
+Player* get_player_by_fd(int fd) {
+    if (players[fd]) return players[fd];
+    return servers[fd];
+}
+
 // Reads a Minecraft-style VarInt from a socket
+#define ERROR(code) do { free_buffer(temp); return code; } while(0)
 int read_varint(int fd, uint32_t *out) {
+    int auth = player_get_int(get_player_by_fd(fd), "auth", 0);
+    Buffer *temp = init_buffer();
     *out = 0;
     int bytes_read = 0;
     uint8_t byte;
 
     while (bytes_read < 5) {
         ssize_t res = recv(fd, &byte, 1, 0);
-        if (res == 0) return 0; // disconnected
+        if (res == 0) ERROR(0); // disconnected
         if (res < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) return -2;
-            return -1;
+            if (errno == EAGAIN || errno == EWOULDBLOCK) ERROR(-2);
+            ERROR(-1);
+        }
+        if (auth > 0) {
+            append_to_buffer(temp, (char*)&byte, 1);
+            RSA_decrypt(get_player_by_fd(fd)->context, temp, temp);
+            byte = temp->buffer[0];
+            cut_buffer(temp, 1);
         }
 
         *out |= (byte & 0x7F) << (7 * bytes_read);
@@ -28,10 +47,11 @@ int read_varint(int fd, uint32_t *out) {
         if ((byte & 0x80) == 0) break;
     }
 
-    if (bytes_read == 5 && (byte & 0x80)) return -3;
+    if (bytes_read == 5 && (byte & 0x80)) ERROR(-3);
 
-    return 1;
+    ERROR(1);
 }
+#undef ERROR
 
 // Receives only the payload (excluding the VarInt length)
 int recv_packet(int fd, Buffer *out) {
@@ -58,6 +78,8 @@ int recv_packet(int fd, Buffer *out) {
         }
         total_read += n;
     }
+
+    if (player_get_int(get_player_by_fd(fd), "auth", 0) > 0) RSA_decrypt(get_player_by_fd(fd)->context, out, out);
 
     return 1; // success
 }

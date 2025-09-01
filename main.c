@@ -5,17 +5,16 @@
 #include "utils/globals.h"
 #include "utils/packet.h"
 #include "utils/logger.h"
-
+#include "networking/requests.h"
 #include "game/player/init.h"
-
 #include <stdio.h>
 #include <sys/epoll.h>
 #include <unistd.h>
-
 #include "utils/clock.h"
 #include "utils/ram.h"
-
 #include <malloc.h>
+
+#include "utils/console.h"
 
 #define MAX_EVENTS 1024
 #define LISTEN_PORT 25568
@@ -28,6 +27,7 @@ Player* servers[MAX_FDS * 2];
 bit_array(ticking_fds, MAX_FDS * 2);
 int ticking_fdc = 0;
 int epoll_fd;
+int exitbool = 0;
 
 int main() {
     int server_fd = create_server_socket(LISTEN_PORT);
@@ -42,6 +42,9 @@ int main() {
         close(server_fd);
         return 1;
     }
+
+    http_init();
+    console_init(epoll_fd);
 
     struct epoll_event ev, events[MAX_EVENTS];
     ev.events = DEFAULT_EPOLL_FLAGS;
@@ -58,7 +61,9 @@ int main() {
     // int last_tick = 0;
     int ram_free = 0;
 
-    while (1) {
+    while (!exitbool) {
+        http_perform();
+
         int count = 0;
         for (int i = 0; i < MAX_FDS*2 && count < ticking_fdc; i++) {
             if (bit_get(ticking_fds,i)) {
@@ -89,9 +94,9 @@ int main() {
 
             if (fd == server_fd) {
                 accept_and_connect(server_fd, epoll_fd, TARGET_IP, TARGET_PORT);
+            } else if (events[i].data.fd == STDIN_FILENO) {
+                console_handle_input();
             } else if (ev_flags & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
-                // Clean disconnect, hang-up, or socket error
-                // printf("Client %d disconnected or error occurred (flags: 0x%x)\n", fd, ev_flags);
                 close_connection(fd, epoll_fd);
             } else if (ev_flags & EPOLLIN) {
                 handle_packets(fd, epoll_fd);
@@ -99,8 +104,10 @@ int main() {
                 packet_queue_send(fd);
             }
         }
+
     }
 
+    http_cleanup();
     close(server_fd);
     close(epoll_fd);
     return 0;

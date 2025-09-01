@@ -16,7 +16,6 @@ def extract_code(redirect_url):
     query = urllib.parse.parse_qs(parsed.query)
     return query.get("code", [None])[0]
 
-
 def exchange_code_for_token(auth_code):
     data = {
         "client_id": CLIENT_ID,

@@ -8,7 +8,7 @@
 #include "player.h"
 
 
-#define DEFAULT_EPOLL_FLAGS (EPOLLIN | EPOLLET | EPOLLRDHUP )
+#define DEFAULT_EPOLL_FLAGS (EPOLLIN | EPOLLET | EPOLLRDHUP)
  // | EPOLLHUP | EPOLLERR)
 #define MAX_FDS 65536
 
@@ -19,5 +19,7 @@ extern int epoll_fd;
 
 extern uint8_t ticking_fds[((MAX_FDS * 2) + 7) / 8];
 extern int ticking_fdc;
+
+extern int exitbool;
 
 #endif

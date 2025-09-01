@@ -23,4 +23,11 @@ typedef struct PacketQueue {
     Packet *tail;
 } PacketQueue;
 
+typedef struct {
+    Buffer *public_key;
+    Buffer *secret_key;
+
+    Buffer *shared_secret;
+} KeyPair;
+
 #endif

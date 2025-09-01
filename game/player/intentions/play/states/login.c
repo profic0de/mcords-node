@@ -75,6 +75,7 @@ void login(int fd, Buffer *buffer) {
     if (!skip) players[fd]->process = 1;
     free_split(cookie_parts, out_count);
     free_buffer(buf);
+    END_PLAYER;
 }
 
 void uuid_to_string(const uint8_t uuid[16], char uuid_str[37]) {

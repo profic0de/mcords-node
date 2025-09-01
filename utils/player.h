@@ -4,6 +4,7 @@
 #include <stddef.h>
 // Forward declare AsyncState to avoid circular include
 #include "utils/common.h"
+#include "networking/encryption.h"
 // -------------------------
 // Player dynamic data system
 // -------------------------
@@ -50,6 +51,8 @@ typedef struct {
     AsyncState *asyncio;
     int asyncio_count;
     int asyncio_capacity;
+
+    RSA_CryptoContext *context;
 } Player;
 
 // -------------------------
@@ -68,6 +71,10 @@ float player_get_float(Player* p, const char* key, float fallback);
 
 void player_set_string(Player* p, const char* key, const char* value);
 const char* player_get_string(Player* p, const char* key, const char* fallback);
+
+int player_pop_int(Player* p, const char* key, int fallback);
+float player_pop_float(Player* p, const char* key, float fallback);
+char* player_pop_string(Player* p, const char* key, const char* fallback);
 
 void player_print_data(Player* p);
 
