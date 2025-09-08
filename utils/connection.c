@@ -137,7 +137,7 @@ void accept_and_connect(int server_fd, int epoll_fd, const char *target_ip, int 
 
 
         Player* p = player_create(client_fd, "unknown");
-        printf("New player registred\n");
+        // printf("New player registred\n");
         // servers[client_fd] = malloc(sizeof(Player));
         if (read_config_bool("enforce-target-connection")) {
             servers[target_fd] = malloc(sizeof(Player));
@@ -191,7 +191,7 @@ void handle_packets(int fd, int epoll_fd) {
         close_connection(fd, epoll_fd);
     } else {
         close_connection(fd, epoll_fd);
-        perror("recv_packet_payload failed\n");
+        printf("[!] recv_packet_payload failed, error code: %d\n", result);
     }
 
     free(packet.buffer);

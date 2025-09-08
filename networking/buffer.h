@@ -23,5 +23,6 @@ Buffer *init_buffer();
 void free_buffer(Buffer *buf);
 
 char *hex(const Buffer *buf);
+void print_hex(const Buffer *buf);
 
 #endif

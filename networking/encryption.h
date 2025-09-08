@@ -26,13 +26,13 @@ RSA_CryptoContext* RSA_init(void);
 // Generate 16-byte shared secret and setup AES keys
 // Generate RSA keypair (server if pub_der == NULL) or load public key (client),
 // and also generate the shared secret + AES contexts.
-int RSA_generate(RSA_CryptoContext *ctx, const Buffer *pub_der);
+int RSA_generate(RSA_CryptoContext *ctx, const Buffer *pub_der, const Buffer *secret);
 
-// Encrypt data (shared secret or verify token) with RSA public key
 int RSA_encrypt(RSA_CryptoContext *ctx, const Buffer *input, Buffer *output);
-
-// Decrypt data (shared secret or verify token) with RSA private key
 int RSA_decrypt(RSA_CryptoContext *ctx, const Buffer *input, Buffer *output);
+
+int AES_encrypt(RSA_CryptoContext *ctx, const Buffer *input, Buffer *output);
+int AES_decrypt(RSA_CryptoContext *ctx, const Buffer *input, Buffer *output);
 
 // Cleanup context and OpenSSL resources
 void RSA_cleanup(RSA_CryptoContext *ctx);

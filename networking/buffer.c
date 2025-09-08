@@ -86,3 +86,13 @@ char *hex(const Buffer *buf) {
     hexstr[hexlen] = '\0';
     return hexstr;
 }
+
+void print_hex(const Buffer *buf) {
+    if (!buf || !buf->buffer || buf->length == 0) return;
+
+    printf("");
+    for (size_t i = 0; i < buf->length; ++i) {
+        fprintf(stdout, "%02X", (unsigned char)buf->buffer[i]);
+    }
+    fprintf(stdout, "\n");
+}

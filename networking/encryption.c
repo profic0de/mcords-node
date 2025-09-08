@@ -17,7 +17,6 @@ RSA_CryptoContext* RSA_init(void) {
     ctx->enc_ctx = NULL;
     ctx->dec_ctx = NULL;
     ctx->shared_secret = init_buffer();
-    ctx->shared_secret->length = 0;
 
     OpenSSL_add_all_algorithms();
     ERR_load_crypto_strings();
@@ -29,10 +28,10 @@ RSA_CryptoContext* RSA_init(void) {
     return ctx;
 }
 
-// Generate 16-byte shared secret and setup AES keys
+// Generate 16-byte shared secret and setup RSA keys
 // Generate RSA keypair (server if pub_der == NULL) or load public key (client),
-// and also generate the shared secret + AES contexts.
-int RSA_generate(RSA_CryptoContext *ctx, const Buffer *pub_der) {
+// and also generate the shared secret + RSA contexts.
+int RSA_generate(RSA_CryptoContext *ctx, const Buffer *pub_der, const Buffer *secret) {
     if (!pub_der) {
         // --- Server mode: Generate 1024-bit RSA keypair ---
         BIGNUM *e_bn = BN_new();
@@ -47,14 +46,18 @@ int RSA_generate(RSA_CryptoContext *ctx, const Buffer *pub_der) {
         }
         BN_free(e_bn);
 
-        // Generate shared secret
+        // --- Generate or use provided secret ---
         unsigned char temp[16];
-        if (RAND_bytes(temp, sizeof(temp)) != 1) {
-            handleErrors();
+        if (secret && secret->length >= 16) {
+            memcpy(temp, secret->buffer, 16);
+        } else {
+            if (RAND_bytes(temp, sizeof(temp)) != 1) {
+                handleErrors();
+            }
         }
         append_to_buffer(ctx->shared_secret, (const char *)temp, sizeof(temp));
 
-        // Setup AES contexts
+        // --- RSA init ---
         ctx->enc_ctx = EVP_CIPHER_CTX_new();
         ctx->dec_ctx = EVP_CIPHER_CTX_new();
         if (!ctx->enc_ctx || !ctx->dec_ctx) {
@@ -76,10 +79,23 @@ int RSA_generate(RSA_CryptoContext *ctx, const Buffer *pub_der) {
             handleErrors();
         }
 
-        // ⚠ No secret generation or AES init here
-        // Client must later generate a random secret,
-        // encrypt it with ctx->rsa_key (public),
-        // send to server, and THEN initialize AES.
+        // --- If secret provided, init RSA now ---
+        if (secret && secret->length >= 16) {
+            unsigned char temp[16];
+            memcpy(temp, secret->buffer, 16);
+            append_to_buffer(ctx->shared_secret, (const char *)temp, sizeof(temp));
+
+            ctx->enc_ctx = EVP_CIPHER_CTX_new();
+            ctx->dec_ctx = EVP_CIPHER_CTX_new();
+            if (!ctx->enc_ctx || !ctx->dec_ctx) {
+                handleErrors();
+            }
+            if (EVP_EncryptInit_ex(ctx->enc_ctx, EVP_aes_128_cfb8(), NULL, temp, temp) != 1 ||
+                EVP_DecryptInit_ex(ctx->dec_ctx, EVP_aes_128_cfb8(), NULL, temp, temp) != 1) {
+                handleErrors();
+            }
+        }
+        // Else: client must encrypt its secret with ctx->rsa_key and call again later
     }
 
     return 1;
@@ -102,6 +118,9 @@ int RSA_encrypt(RSA_CryptoContext *ctx, const Buffer *input, Buffer *output) {
         free(temp_out);
         handleErrors();
     }
+
+    if (input == output) {free_buffer(output);output = init_buffer();}
+
     append_to_buffer(output, (const char *)temp_out, len);
     free(temp_out);
     return 1;
@@ -124,6 +143,9 @@ int RSA_decrypt(RSA_CryptoContext *ctx, const Buffer *input, Buffer *output) {
         free(temp_out);
         handleErrors();
     }
+
+    if (input == output) {free_buffer(output);output = init_buffer();}
+
     append_to_buffer(output, (const char *)temp_out, len);
     free(temp_out);
     return 1;
@@ -140,6 +162,49 @@ void RSA_cleanup(RSA_CryptoContext *ctx) {
     }
     EVP_cleanup();
     ERR_free_strings();
+}
+
+// Encrypt a buffer using RSA public key
+// Encrypt a buffer using AES-128-CFB8 (Minecraft style)
+int AES_encrypt(RSA_CryptoContext *ctx, const Buffer *input, Buffer *output) {
+    if (!ctx || !ctx->enc_ctx || !input || !output) return 0;
+
+    int out_len = input->length;
+    unsigned char *out_buf = malloc(out_len);
+    if (!out_buf) return 0;
+
+    int processed = 0;
+    if (EVP_EncryptUpdate(ctx->enc_ctx, out_buf, &processed, (unsigned char *)input->buffer, input->length) != 1) {
+        free(out_buf);
+        handleErrors();
+    }
+
+    if (input == output) {free_buffer(output);output = init_buffer();}
+
+    append_to_buffer(output, (const char *)out_buf, processed);
+    free(out_buf);
+    return 1;
+}
+
+// Decrypt a buffer using AES-128-CFB8 (Minecraft style)
+int AES_decrypt(RSA_CryptoContext *ctx, const Buffer *input, Buffer *output) {
+    if (!ctx || !ctx->dec_ctx || !input || !output) return 0;
+
+    int out_len = input->length;
+    unsigned char *out_buf = malloc(out_len);
+    if (!out_buf) return 0;
+
+    int processed = 0;
+    if (EVP_DecryptUpdate(ctx->dec_ctx, out_buf, &processed, (unsigned char *)input->buffer, input->length) != 1) {
+        free(out_buf);
+        handleErrors();
+    }
+
+    if (input == output) {free_buffer(output);output = init_buffer();}
+
+    append_to_buffer(output, (const char *)out_buf, processed);
+    free(out_buf);
+    return 1;
 }
 
 /*
@@ -175,7 +240,7 @@ RSA_CryptoContext *client_ctx = RSA_init();
 // 2. Load server public key from DER
 RSA_generate(client_ctx, pub_der);
 
-// 3. Generate a random shared secret and initialize AES
+// 3. Generate a random shared secret and initialize RSA
 //    (stored in client_ctx->shared_secret, used to setup enc/dec ctxs)
 RSA_generate_secret(client_ctx);
 
@@ -194,9 +259,9 @@ RSA_encrypt(client_ctx, client_ctx->shared_secret, enc_shared);
 Buffer *dec_shared = init_buffer();
 RSA_decrypt(server_ctx, enc_shared, dec_shared);
 
-// 2. Store the shared secret in server_ctx and initialize AES
+// 2. Store the shared secret in server_ctx and initialize RSA
 append_to_buffer(server_ctx->shared_secret, dec_shared->buffer, dec_shared->length);
-RSA_setup_aes(server_ctx);  // derive AES contexts from shared_secret
+RSA_setup_aes(server_ctx);  // derive RSA contexts from shared_secret
 
 // ==========================================================
 // --- ENCRYPTION/DECRYPTION READY ---
@@ -205,5 +270,5 @@ RSA_setup_aes(server_ctx);  // derive AES contexts from shared_secret
 // Both sides now have:
 //   - server_ctx->enc_ctx / server_ctx->dec_ctx
 //   - client_ctx->enc_ctx / client_ctx->dec_ctx
-// These can be used for AES-128-CFB8 packet encryption/decryption.
+// These can be used for RSA-128-CFB8 packet encryption/decryption.
 */

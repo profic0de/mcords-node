@@ -52,7 +52,8 @@ typedef struct {
     int asyncio_count;
     int asyncio_capacity;
 
-    RSA_CryptoContext *context;
+    RSA_CryptoContext *client_context;
+    RSA_CryptoContext *server_context;
 } Player;
 
 // -------------------------

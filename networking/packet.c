@@ -18,10 +18,22 @@ Player* get_player_by_fd(int fd) {
     return servers[fd];
 }
 
+const char* get_side_by_fd(int fd) {
+    if (players[fd]) return "client";
+    if (servers[fd]) return "server";
+    return "unknown";
+}
+
+RSA_CryptoContext* get_context_by_fd(int fd) {
+    if (!strcmp(get_side_by_fd(fd), "unknown")) return NULL;
+    if (!strcmp(get_side_by_fd(fd), "server")) return get_player_by_fd(fd)->server_context;
+    if (!strcmp(get_side_by_fd(fd), "client")) return get_player_by_fd(fd)->client_context;
+    return NULL;
+}
+
 // Reads a Minecraft-style VarInt from a socket
 #define ERROR(code) do { free_buffer(temp); return code; } while(0)
 int read_varint(int fd, uint32_t *out) {
-    int auth = player_get_int(get_player_by_fd(fd), "auth", 0);
     Buffer *temp = init_buffer();
     *out = 0;
     int bytes_read = 0;
@@ -34,9 +46,11 @@ int read_varint(int fd, uint32_t *out) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) ERROR(-2);
             ERROR(-1);
         }
-        if (auth > 0) {
+        if (player_get_int(get_player_by_fd(fd), "auth", 0) > 2) {
             append_to_buffer(temp, (char*)&byte, 1);
-            RSA_decrypt(get_player_by_fd(fd)->context, temp, temp);
+            RSA_CryptoContext *ctx = get_context_by_fd(fd);
+            if (!ctx) ERROR(-4);
+            AES_decrypt(ctx, temp, temp);
             byte = temp->buffer[0];
             cut_buffer(temp, 1);
         }
@@ -79,7 +93,10 @@ int recv_packet(int fd, Buffer *out) {
         total_read += n;
     }
 
-    if (player_get_int(get_player_by_fd(fd), "auth", 0) > 0) RSA_decrypt(get_player_by_fd(fd)->context, out, out);
-
+    if (player_get_int(get_player_by_fd(fd), "auth", 0) > 2) {
+        RSA_CryptoContext *ctx = get_context_by_fd(fd);
+        if (!ctx) return -3;
+        AES_decrypt(ctx, out, out);
+    }
     return 1; // success
 }

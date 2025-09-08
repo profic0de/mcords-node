@@ -43,7 +43,8 @@ Player* player_create(int id, const char* name) {
 
     p->data = calloc(1, sizeof(PlayerData));
 
-    p->context = RSA_init();
+    p->client_context = RSA_init();
+    p->server_context = RSA_init();
     return p;
 }
 

@@ -114,6 +114,7 @@ int modify_epoll(int epoll_fd, int fd, uint32_t events) {
 }
 
 #include "packet/building/vars.h"
+#include "networking/packet.h"
 
 int packet_send(Buffer *buffer, int fd) {
     // Step 1: Push packet to queue
@@ -121,6 +122,12 @@ int packet_send(Buffer *buffer, int fd) {
     build_varint(temp, buffer->length);
     prepend_to_buffer(buffer, temp->buffer, temp->length);
     free_buffer(temp);
+
+    if (player_get_int(get_player_by_fd(fd), "auth", 0) > 2) {
+        RSA_CryptoContext *ctx = get_context_by_fd(fd);
+        if (!ctx) return -2;
+        RSA_encrypt(ctx, buffer, buffer);
+    }
 
     packet_queue_push(buffer, fd);
 

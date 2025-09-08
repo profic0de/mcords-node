@@ -117,7 +117,7 @@ Buffer *parse_prefixed_bytes_array(Buffer *buf, int max_length, int optional, in
     if (!o || e) return result;
 
     int length = parse_varint(buf, &e);
-    LOG("Varint: %d", length);
+    // LOG("Varint: %d", length);
     if (e) {
         (*error)++;
         return result;
@@ -131,13 +131,13 @@ Buffer *parse_prefixed_bytes_array(Buffer *buf, int max_length, int optional, in
 
     if (buf->length < length) {
         (*error)++;
-        LOG("Buffer too short: needed %d, have %d", length, buf->length);
+        // LOG("Buffer too short: needed %d, have %d", length, buf->length);
         return result;
     }
 
-    LOG("Parsed byte array of length %d", length);
+    // LOG("Parsed byte array of length %d", length);
     append_to_buffer(result, buf->buffer, length);
-    cut_buffer(buf, length);
+    cut_buffer(buf, -length);
 
     return result;
 }
