@@ -69,6 +69,9 @@ void console_init(int epoll_fd) {
     console_redraw_prompt();
 }
 
+void print_live_memory_usage();
+char *authenticate(char *url);
+
 void console_handle_input(void) {
     char buf[CONSOLE_BUF_SIZE];
     ssize_t len = read(STDIN_FILENO, buf, sizeof(buf));
@@ -82,14 +85,22 @@ void console_handle_input(void) {
 
             // Example: command handling
             if (strcmp(input_buffer, "help") == 0) {
-                printf("help - show this menu\n");
-                printf("cls  - clear the screen\n");
-                printf("exit - exit the program\n");
-            } else if (strcmp(input_buffer, "cls") == 0) {
+                printf("help      - show this menu\n");
+                printf("cls       - clear the screen\n");
+                printf("mem       - show memory usage\n");
+                printf("exit      - exit the program\n");
+                printf("reg <url> - register account from url\n");
+            } else if (!strcmp(input_buffer, "cls")) {
                 printf("\033[2J\033[H");
-            } else if (strcmp(input_buffer, "exit") == 0) {
+            } else if (!strcmp(input_buffer, "exit")) {
                 printf("Exiting...\n");
                 exitbool = 1;
+            } else if (!strcmp(input_buffer, "mem")) {
+                print_live_memory_usage();
+            } else if (!strncmp(input_buffer, "reg", 3)) {
+                char *url = input_buffer + 4;  // Skip "reg "
+                char *r = authenticate(url);
+                if (r) printf("Reg command failed: %s\n", r);
             } else if (strlen(input_buffer) > 0) {
                 printf("Unknown command: %s\n", input_buffer);
             }
