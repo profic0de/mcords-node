@@ -4,7 +4,7 @@
 #include "networking/buffer.h"
 
 #define TOKENS_FILE "tokens.json"
-#define URL "https://login.live.com/oauth20_desktop.srf?code=M.C538_BL2.2.U.086de2b4-c8ba-2707-0e1f-84ac88eb037c&lc=1033"
+#define URL "https://login.live.com/oauth20_desktop.srf?code=asdasdasd&lc=1033"
 
 int main() {
     int len, start;
