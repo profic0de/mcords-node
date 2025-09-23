@@ -65,14 +65,16 @@ static inline int auth_post0(const char *code) {
 
     const char *url = "https://login.live.com/oauth20_token.srf";
 
+    CURL *easy = curl_easy_init();
     
     char post_fields[1024];
     snprintf(post_fields, sizeof(post_fields),
-            "client_id=00000000402b5328&redirect_uri=https://login.live.com/oauth20_desktop.srf&grant_type=authorization_code&code=%s",
-            code);
+            "client_id=00000000402b5328&redirect_uri=%s&grant_type=authorization_code&code=%s",
+            curl_easy_escape(easy, "https://login.live.com/oauth20_desktop.srf", 0), code);
     printf("POST body: %s\n", post_fields);
 
-    
+    curl_easy_cleanup(easy);
+
     http_post_0(url, post_fields, resp);
     
     AuthBlock *block = malloc(sizeof(AuthBlock));
