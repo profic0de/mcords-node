@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 
-static CURLM *multi_handle = NULL;
+CURLM *multi_handle = NULL;
 
 static size_t write_cb(void *contents, size_t size, size_t nmemb, void *userp) {
     size_t total = size * nmemb;

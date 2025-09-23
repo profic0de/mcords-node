@@ -2,6 +2,7 @@
 #define NETWORKING_buffer
 
 #include "utils/common.h"
+#include <stdint.h>
 
 #define bit_array(name, num_bits) uint8_t name[((num_bits) + 7) / 8] = {0}
 

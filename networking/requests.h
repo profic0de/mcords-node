@@ -13,6 +13,8 @@ typedef struct {
 void http_init();
 void http_cleanup();
 
+extern CURLM *multi_handle;
+
 CURL *http_get(const char *url, HttpResponse *resp);
 CURL *http_post(const char *url, const char *post_fields, HttpResponse *resp);
 CURL *http_post_json(const char *url, const char *json_data, HttpResponse *resp);

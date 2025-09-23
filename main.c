@@ -29,6 +29,8 @@ int ticking_fdc = 0;
 int epoll_fd;
 int exitbool = 0;
 
+int auth_loop();
+
 int main() {
     int server_fd = create_server_socket(LISTEN_PORT);
     if (server_fd < 0) {
@@ -60,6 +62,7 @@ int main() {
 
     // int last_tick = 0;
     int ram_free = 0;
+    int auth = 0;
 
     while (!exitbool) {
         http_perform();
@@ -75,6 +78,7 @@ int main() {
 
         // if (delay_repeat(1, &last_tick)) print_live_memory_usage();
         if (delay_repeat(5, &ram_free)) malloc_trim(0);
+        if (delay_repeat(5, &auth)) auth_loop();
 
         // int count = 0;
         // for (int i = 0; i < MAX_FDS; i++)

@@ -70,7 +70,8 @@ void console_init(int epoll_fd) {
 }
 
 void print_live_memory_usage();
-char *authenticate(char *url);
+typedef struct AuthBlock AuthBlock;
+char *authenticate(char *url, AuthBlock *block);
 
 void console_handle_input(void) {
     char buf[CONSOLE_BUF_SIZE];
@@ -99,7 +100,7 @@ void console_handle_input(void) {
                 print_live_memory_usage();
             } else if (!strncmp(input_buffer, "reg", 3)) {
                 char *url = input_buffer + 4;  // Skip "reg "
-                char *r = authenticate(url);
+                char *r = authenticate(url, NULL);
                 if (r) printf("Reg command failed: %s\n", r);
             } else if (strlen(input_buffer) > 0) {
                 printf("Unknown command: %s\n", input_buffer);
