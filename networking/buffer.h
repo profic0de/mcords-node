@@ -25,5 +25,6 @@ void free_buffer(Buffer *buf);
 
 char *hex(const Buffer *buf);
 void print_hex(const Buffer *buf);
+void print_readable(const Buffer *buf);
 
 #endif

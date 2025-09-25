@@ -11,7 +11,7 @@
 #define MAX_REQUESTS 16
 
 typedef struct{
-    HttpResponse *response;
+    HttpResponse *request;
     int step;
 } AuthBlock;
 
@@ -22,63 +22,32 @@ char *authenticate(char *url, AuthBlock *block);
 
 int auth_loop() {
     for (int i = 0; i < MAX_REQUESTS; i++) {
-        if (auth_requests[i] && auth_requests[i]->response->done) {
+        if (auth_requests[i] && auth_requests[i]->request->done) {
             authenticate(NULL, auth_requests[i]);
-            free_buffer(auth_requests[i]->response->buf);
+            free_buffer(auth_requests[i]->request->buf);
+            free(auth_requests[i]->request);
+            free(auth_requests[i]);
+            auth_requests[i] = NULL;
         }
     }
     return 0;
 }
 
 // static CURLM *multi_handle = NULL;
-static inline size_t write_cb(void *contents, size_t size, size_t nmemb, void *userp) {
-    size_t total = size * nmemb;
-    HttpResponse *resp = (HttpResponse *)userp;
-
-    append_to_buffer(resp->buf, contents, total);
-    return total;
-}
-static inline CURL *http_post_0(const char *url, const char *post_fields, HttpResponse *resp) {
-    resp->buf = init_buffer();
-    resp->done = 0;
-    resp->status_code = 0;
-
-    CURL *easy = curl_easy_init();
-    curl_easy_setopt(easy, CURLOPT_URL, url);
-    curl_easy_setopt(easy, CURLOPT_POSTFIELDS, post_fields);
-    curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, write_cb);
-    curl_easy_setopt(easy, CURLOPT_WRITEDATA, resp);
-    curl_easy_setopt(easy, CURLOPT_PRIVATE, resp);
-    curl_easy_setopt(easy, CURLOPT_USERAGENT, "C-EpollClient/1.0");
-
-    
-    struct curl_slist *headers = NULL;
-    headers = curl_slist_append(headers, "Content-Type: application/x-www-form-urlencoded");
-    curl_easy_setopt(easy, CURLOPT_HTTPHEADER, headers);
-
-    curl_multi_add_handle(multi_handle, easy);
-    return easy;
-}
 
 static inline int auth_post0(const char *code) {
-    HttpResponse *resp = malloc(sizeof(HttpResponse));
+    char post_fields[512];
+    const char *redirect_uri = "https%3A%2F%2Flogin.live.com%2Foauth20_desktop.srf"; 
+    // const char *code = "M.C538_BAY.2.U.62a35b0c-b452-2eb3-7247-162c19c8472a"; // hardcoded
 
-    const char *url = "https://login.live.com/oauth20_token.srf";
+    printf("Auth post 0 with code: %s\n", code);
 
-    CURL *easy = curl_easy_init();
-    
-    char post_fields[1024];
-    snprintf(post_fields, sizeof(post_fields),
-            "client_id=00000000402b5328&redirect_uri=%s&grant_type=authorization_code&code=%s",
-            curl_easy_escape(easy, "https://login.live.com/oauth20_desktop.srf", 0), code);
-    printf("POST body: %s\n", post_fields);
+    snprintf(post_fields, sizeof(post_fields), "client_id=00000000402b5328&redirect_uri=%s&grant_type=authorization_code&code=%s",redirect_uri, code);
 
-    curl_easy_cleanup(easy);
+    HttpResponse *resp = http_post("https://login.live.com/oauth20_token.srf", post_fields, "application/x-www-form-urlencoded");
 
-    http_post_0(url, post_fields, resp);
-    
     AuthBlock *block = malloc(sizeof(AuthBlock));
-    block->response = resp;
+    block->request = resp;
     block->step = 1;
     
     int slot = -1;
@@ -96,7 +65,6 @@ static inline int auth_post0(const char *code) {
         return -1;
     }
 
-    auth_requests[slot]->response->done = 0;
     auth_requests[slot] = block;
 
     return 0;
@@ -108,21 +76,27 @@ char *authenticate(char *url, AuthBlock *block) {
     {
     case 0: {
         // LOG("Called");
-        int len, start;
-        sscanf(url, "https://login.live.com/oauth20_desktop.srf?code=%n%*[^&]%n", &start, &len);
-        len -= start;
-        char code[len + 1];
-        sscanf(url, "https://login.live.com/oauth20_desktop.srf?code=%[^&]", code);
+        const char *code_start = strstr(url, "code=");
+        if (!code_start) return "Invalid URL";
+        code_start += 5; // skip "code="
 
-        if (len <= 0) return "Invalid URL"; // Invalid URL
+        const char *amp = strchr(code_start, '&');
+        size_t code_len = amp ? (size_t)(amp - code_start) : strlen(code_start);
 
-        printf("Got code from the URL: %s (%d bytes)\n", code, len);
+        char code[256]; // make sure big enough
+        if (code_len >= sizeof(code)) code_len = sizeof(code)-1;
+        memcpy(code, code_start, code_len);
+        code[code_len] = '\0'; // null-terminate
+
+        if (code_len <= 0) return "Invalid URL"; // Invalid URL
+
+        printf("Got code from the URL: %s (%d bytes)\n", code, code_len);
         auth_post0(code);
         break;}
 
     case 1: {
         printf("Step 1 response:\n");
-        print_hex(block->response->buf);
+        print_readable(block->request->buf);
 
         break;}
     }

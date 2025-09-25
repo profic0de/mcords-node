@@ -2,20 +2,18 @@
 #define REQUESTS_H
 
 #include <curl/curl.h>
+#include "networking/buffer.h"
 
 typedef struct {
     CURL *easy;
-    struct Memory {
-        char *response;
-        size_t size;
-    } chunk;
-    int finished;
+    Buffer *buf;
+    int done;
     struct curl_slist *headers;
-} AsyncRequest;
+} HttpResponse;
 
 void http_init(void);
 void http_cleanup(void);
-AsyncRequest *http_post(const char *url, const char *data, const char *content_type);
+HttpResponse *http_post(const char *url, const char *data, const char *content_type);
 void http_perform(void); // Tick all requests
 
 #define JSON_PAIR(key, val) _Generic((val), \

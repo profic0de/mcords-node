@@ -14,6 +14,8 @@
         "x509.h": "c",
         "rand.h": "c",
         "requests.h": "c",
-        "__node_handle": "c"
+        "__node_handle": "c",
+        "format": "c",
+        "coroutine": "c"
     }
 }

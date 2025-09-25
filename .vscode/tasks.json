@@ -11,6 +11,7 @@
                 "${file}",
                 "-o",
                 "${fileDirname}/${fileBasenameNoExtension}.o",
+                "networking/buffer.c",
                 "networking/requests.c",
                 "-lcurl",
                 "-ljansson"

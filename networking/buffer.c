@@ -96,3 +96,19 @@ void print_hex(const Buffer *buf) {
     }
     fprintf(stdout, "\n");
 }
+
+void print_readable(const Buffer *buf) {
+    if (!buf || !buf->buffer || buf->length == 0) return;
+
+    printf("");
+    for (size_t i = 0; i < buf->length; i++) {
+        unsigned char c = buf->buffer[i];
+        if (c >= 32 && c <= 126) {
+            fputc(c, stdout);  // printable ASCII
+        } else {
+            fputc('.', stdout); // non-printable -> dot
+        }
+    }
+    fputc('\n', stdout);
+    // printf("");
+}
