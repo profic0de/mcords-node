@@ -124,8 +124,6 @@ char *authenticate(char *url, AuthBlock *block) {
         printf("Step 1 response:\n");
         print_hex(block->response->buf);
 
-
-
         break;}
     }
     return NULL;
