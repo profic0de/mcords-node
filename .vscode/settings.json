@@ -1,0 +1,19 @@
+{
+    "files.associations": {
+        "common.h": "c",
+        "expected": "c",
+        "socket": "c",
+        "__locale": "c",
+        "sstream": "c",
+        "globals.h": "c",
+        "console.h": "c",
+        "buffer.h": "c",
+        "init.h": "c",
+        "player.h": "c",
+        "vars.h": "c",
+        "x509.h": "c",
+        "rand.h": "c",
+        "requests.h": "c",
+        "__node_handle": "c"
+    }
+}

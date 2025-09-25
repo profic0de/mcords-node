@@ -1,99 +1,94 @@
 #include "requests.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
+#include <unistd.h>
 
-CURLM *multi_handle = NULL;
+static CURLM *multi = NULL;
+static size_t request_count = 0;
+static AsyncRequest **requests = NULL;
 
-static size_t write_cb(void *contents, size_t size, size_t nmemb, void *userp) {
-    size_t total = size * nmemb;
-    HttpResponse *resp = (HttpResponse *)userp;
-
-    append_to_buffer(resp->buf, contents, total);
-    return total;
+static size_t write_callback(void *data, size_t size, size_t nmemb, void *userp) {
+    size_t realsize = size * nmemb;
+    struct Memory *mem = (struct Memory *)userp;
+    char *ptr = realloc(mem->response, mem->size + realsize + 1);
+    if (!ptr) return 0;
+    mem->response = ptr;
+    memcpy(&(mem->response[mem->size]), data, realsize);
+    mem->size += realsize;
+    mem->response[mem->size] = 0;
+    return realsize;
 }
 
-void http_init() {
-    curl_global_init(CURL_GLOBAL_ALL);
-    multi_handle = curl_multi_init();
+void http_init(void) {
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+    multi = curl_multi_init();
 }
 
-void http_cleanup() {
-    curl_multi_cleanup(multi_handle);
+void http_cleanup(void) {
+    for (size_t i = 0; i < request_count; i++) {
+        AsyncRequest *req = requests[i];
+        curl_multi_remove_handle(multi, req->easy);
+        curl_easy_cleanup(req->easy);
+        if (req->headers) curl_slist_free_all(req->headers);
+        free(req->chunk.response);
+        free(req);
+    }
+    free(requests);
+    curl_multi_cleanup(multi);
     curl_global_cleanup();
+    requests = NULL;
+    request_count = 0;
 }
 
-CURL *http_get(const char *url, HttpResponse *resp) {
-    resp->buf = init_buffer();
-    resp->done = 0;
-    resp->status_code = 0;
+AsyncRequest *http_post(const char *url, const char *data, const char *content_type) {
+    AsyncRequest *req = calloc(1, sizeof(AsyncRequest));
+    req->chunk.response = NULL;
 
-    CURL *easy = curl_easy_init();
-    curl_easy_setopt(easy, CURLOPT_URL, url);
-    curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, write_cb);
-    curl_easy_setopt(easy, CURLOPT_WRITEDATA, resp);
-    curl_easy_setopt(easy, CURLOPT_PRIVATE, resp);
-    curl_easy_setopt(easy, CURLOPT_USERAGENT, "C-EpollClient/1.0");
+    req->easy = curl_easy_init();
+    curl_easy_setopt(req->easy, CURLOPT_URL, url);
+    curl_easy_setopt(req->easy, CURLOPT_POSTFIELDS, data);
+    curl_easy_setopt(req->easy, CURLOPT_WRITEFUNCTION, write_callback);
+    curl_easy_setopt(req->easy, CURLOPT_WRITEDATA, &req->chunk);
 
-    curl_multi_add_handle(multi_handle, easy);
-    return easy;
+    if (content_type) {
+        char buf[128];
+        snprintf(buf, sizeof(buf), "Content-Type: %s", content_type);
+        req->headers = curl_slist_append(NULL, buf);
+        curl_easy_setopt(req->easy, CURLOPT_HTTPHEADER, req->headers);
+    }
+
+    // Add to global multi-handle
+    curl_multi_add_handle(multi, req->easy);
+
+    // Keep track in global array
+    requests = realloc(requests, sizeof(AsyncRequest*) * (request_count + 1));
+    requests[request_count++] = req;
+
+    return req;
 }
 
-CURL *http_post(const char *url, const char *post_fields, HttpResponse *resp) {
-    resp->buf = init_buffer();
-    resp->done = 0;
-    resp->status_code = 0;
+void http_perform(void) {
+    if (!multi) return;
 
-    CURL *easy = curl_easy_init();
-    curl_easy_setopt(easy, CURLOPT_URL, url);
-    curl_easy_setopt(easy, CURLOPT_POSTFIELDS, post_fields);
-    curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, write_cb);
-    curl_easy_setopt(easy, CURLOPT_WRITEDATA, resp);
-    curl_easy_setopt(easy, CURLOPT_PRIVATE, resp);
-    curl_easy_setopt(easy, CURLOPT_USERAGENT, "C-EpollClient/1.0");
-
-    curl_multi_add_handle(multi_handle, easy);
-    return easy;
-}
-
-CURL *http_post_json(const char *url, const char *json_data, HttpResponse *resp) {
-    resp->buf = init_buffer();
-    resp->done = 0;
-    resp->status_code = 0;
-
-    CURL *easy = curl_easy_init();
-    curl_easy_setopt(easy, CURLOPT_URL, url);
-    curl_easy_setopt(easy, CURLOPT_POSTFIELDS, json_data);
-    curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, write_cb);
-    curl_easy_setopt(easy, CURLOPT_WRITEDATA, resp);
-    curl_easy_setopt(easy, CURLOPT_PRIVATE, resp);
-    curl_easy_setopt(easy, CURLOPT_USERAGENT, "C-EpollClient/1.0");
-
-    // Important: set JSON header
-    struct curl_slist *headers = NULL;
-    headers = curl_slist_append(headers, "Content-Type: application/json");
-    curl_easy_setopt(easy, CURLOPT_HTTPHEADER, headers);
-
-    curl_multi_add_handle(multi_handle, easy);
-    return easy;
-}
-
-void http_perform() {
     int still_running = 0;
-    curl_multi_perform(multi_handle, &still_running);
+    curl_multi_perform(multi, &still_running);
 
+    // Wait for activity on the sockets (non-blocking, short timeout)
+    int numfds = 0;
+    curl_multi_wait(multi, NULL, 0, 100, &numfds); // 100ms max
+
+    // Check for completed requests
     CURLMsg *msg;
     int msgs_left;
-    while ((msg = curl_multi_info_read(multi_handle, &msgs_left))) {
-        if (msg->msg == CURLMSG_DONE) {
-            HttpResponse *resp;
-            curl_easy_getinfo(msg->easy_handle, CURLINFO_PRIVATE, (char **)&resp);
-            curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &resp->status_code);
-
-            resp->done = 1;
-
-            curl_multi_remove_handle(multi_handle, msg->easy_handle);
-            curl_easy_cleanup(msg->easy_handle);
+    for (size_t i = 0; i < request_count; i++) {
+        AsyncRequest *req = requests[i];
+        if (!req->finished) {
+            while ((msg = curl_multi_info_read(multi, &msgs_left))) {
+                if (msg->msg == CURLMSG_DONE && msg->easy_handle == req->easy) {
+                    req->finished = 1;
+                }
+            }
         }
     }
 }

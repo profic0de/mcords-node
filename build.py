@@ -38,7 +38,7 @@ def compile_sources(sources, output):
     return result.returncode == 0
 
 def main():
-    binary = "./proxy"
+    binary = "./proxy.o"
     sources = find_c_sources()
 
     if not sources:
