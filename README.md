@@ -13,5 +13,4 @@
 
 ```bash
 git clone https://github.com/profic0de/mcords-node.git
-cd mcords
 ```
