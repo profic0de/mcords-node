@@ -12,6 +12,6 @@
 ### 📂 Clone the Repository
 
 ```bash
-git clone https://github.com/profic0de/mcords.git
+git clone https://github.com/profic0de/mcords-node.git
 cd mcords
 ```
