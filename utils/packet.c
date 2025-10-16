@@ -22,7 +22,7 @@ void packet_queue_push(Buffer *buffer, int fd) {
         queue[fd] = q;
     }
 
-    Packet *packet = (Packet *)malloc(sizeof(Packet));
+    QPacket *packet = (QPacket *)malloc(sizeof(QPacket));
     if (!packet) return;
 
     packet->data.buffer = (char *)malloc(buffer->length);
@@ -48,7 +48,7 @@ void packet_queue_pop(int fd) {
     PacketQueue *q = queue[fd];
     if (!q->head) return;
 
-    Packet *old = q->head;
+    QPacket *old = q->head;
     q->head = old->next;
     if (!q->head) {
         q->tail = NULL;
@@ -60,7 +60,7 @@ void packet_queue_pop(int fd) {
 int packet_queue_send(int fd) {
     PacketQueue *q = queue[fd];
     while (q->head) {
-        Packet *packet = q->head;
+        QPacket *packet = q->head;
         int to_send = packet->data.length - packet->sent;
         ssize_t sent = send(fd, packet->data.buffer + packet->sent, to_send, 0);
 

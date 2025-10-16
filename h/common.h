@@ -12,15 +12,15 @@ typedef struct {
     char *buffer;
 } Buffer;
 
-typedef struct Packet {
+typedef struct QPacket {
     Buffer data;
     int sent; // How many bytes have been sent
-    struct Packet *next;
-} Packet;
+    struct QPacket *next;
+} QPacket;
 
 typedef struct PacketQueue {
-    Packet *head;
-    Packet *tail;
+    QPacket *head;
+    QPacket *tail;
 } PacketQueue;
 
 // typedef struct {

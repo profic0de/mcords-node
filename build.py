@@ -6,7 +6,8 @@ import os
 BLACKLIST = [
     "test.c",
     "auth.c",
-    "mem.c"
+    "mem.c",
+    "old_main.c"
 ]
 # --------------
 
@@ -33,7 +34,7 @@ def find_c_sources():
 def compile_sources(sources, output):
     print("📦 Compiling sources...")
     cmd = ["gcc", "-g","-fsanitize=leak", "-I.", "-Wall", "-Wno-deprecated-declarations", "-o", output,
-           "-L/usr/lib", "-lcrypto", "-lssl", "-lresolv", "-lcurl", "-Dprintf(...)=my_printf(__VA_ARGS__)"] + sources
+           "-L/usr/lib", "-lcrypto", "-lssl", "-lresolv", "-lcurl"] + sources #, "-Dprintf(...)=my_printf(__VA_ARGS__)"
     result = subprocess.run(cmd)
     return result.returncode == 0
 
