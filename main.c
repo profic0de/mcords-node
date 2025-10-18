@@ -1,6 +1,8 @@
 #include "h/globals.h"
 #include "h/packet.h"
 #include "h/requests.h"
+#include "h/clock.h"
+#include "engine/tick.h"
 #include <errno.h>
 #include <stdio.h>
 #include <sys/epoll.h>
@@ -14,13 +16,16 @@
 
 int epoll_fd;
 int exitbool = 0;
+int max_fds = 0;
 
+Data** fds;
 Packet** packet_queue;
 int packets;
 
 typedef struct config config;
 config* load(char* file, int len, char* fallback);
 char* get_config(config* config, char* key);
+int free_config(config* config);
 
 void close_connection(int fd, int epoll_fd) {
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
@@ -54,60 +59,94 @@ void accept_connection(int server_fd, int epoll_fd) {
     }
 }
 
-void handle_packet(int fd, int epoll_fd) {
+int handle_packet(int fd, int epoll_fd) {
 
     //packet_queue[i]->state
-    //0x00 - finished
+    //0x00 - 
+    //0x02 - len unknownfinished
     //0x01 - unfinished
 
-    Packet* packet = NULL;
-    for (int i = 0; i++; i < packets) {
-        if (packet_queue[i]->state && packet_queue[i]->from == fd) {
-            packet = packet_queue[i];
-            break;
-        }
+    if (!packet_queue) {
+        packet_queue = malloc(sizeof(Packet*));
+        packet_queue[0] = NULL;
+        packets = 1;
     }
 
-    if (!packet) {
-        if (!packet_queue) packet_queue = malloc(sizeof(Packet*));
-        else packet_queue = realloc(packet_queue, sizeof(Packet*)*++packets);
-        packet = malloc(sizeof(Packet));
-        packet->buf = init_buffer();
-        packet->from = fd;
-        packet->state = 0x00;
-
-        packet_queue[packets] = packet;
-    }
-
+    Packet* packet;
     while (1) {
+        packet = NULL;
+        for (int i = 0; i < packets; i++) {
+            if (packet_queue[i] && packet_queue[i]->state && packet_queue[i]->from == fd) {
+                packet = packet_queue[i];
+                break;
+            }
+        }
+
+        if (!packet) {
+            packet = malloc(sizeof(Packet));
+            packet->buf = init_buffer();
+            packet->from = fd;
+            packet->state = 0x02;
+
+            packet_queue = realloc(packet_queue, sizeof(Packet*) * (packets + 1));
+            if (!packet_queue) { perror("realloc"); exit(1); }
+            packet_queue[packets++] = packet;
+        }
+
         char buf[4096];
-        ssize_t n = recv(fd, buf, sizeof(buf), 0);
+        int amout = (packet->state==0x01 && packet->len > sizeof(buf))? sizeof(buf) : (packet->state==0x02)? 1 : packet->len - packet->buf->length;
+        ssize_t n = recv(fd, buf, amout, 0);
         if (n == 0) {
             close_connection(fd, epoll_fd);
-            break;
+            for (int i = 0; i < packets; i++) {
+                if (packet_queue && packet_queue[i]->from==fd) {
+                    free_buffer(packet_queue[i]->buf);
+                    free(packet_queue[i]);
+                    packet_queue[i] = NULL;
+                }
+            }
+            return 1;
         } else if (n < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-                break; // fully read for now
-            perror("recv");
-            close_connection(fd, epoll_fd);
-            break;
+            if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                perror("recv");
+                close_connection(fd, epoll_fd);
+                return 2;
+            } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                return 0;
+            }
+        } else {
+            append_to_buffer(packet->buf, buf, n);
         }
-        append_to_buffer(packet->buf, buf, n);
         // Example: handle your packet data here
-        printf("[fd=%d] Received %zd bytes\n", fd, n);
+        // printf("[fd=%d] Received %zd bytes\n", fd, n);
+
+        if (packet->state == 0x02) {
+            uint32_t packet_len = 0;
+            char err = 0;
+            int i = 0;
+            int shift = 0;
+            for (; i < packet->buf->length; i++) {
+                uint8_t b = packet->buf->buffer[i];
+                packet_len |= (b & 0x7F) << shift;
+                if (!(b & 0x80)) break;
+                shift += 7;
+                if (shift >= 32) {err = 1; break;}
+            } if (!err) {
+                if (packet_len > 0) {
+                    packet->len = packet_len;
+                    packet->state = 0x01;
+                    cut_buffer(packet->buf, -(i+1));
+                }
+            }
+        }
+        if (packet->buf->length == packet->len && packet->state == 0x01) {
+            packet->state = 0x00;
+            printf("[fd=%i] Got a minecraft packet:\n",fd);
+            print_hex(packet->buf);
+        }
+        // if (packet->state == 0x00) break;
     }
-
-    // uint32_t val = 0;
-    // int shift = 0, i = 0;
-    // for (; i < len; i++) {
-    //     uint8_t b = buf[i];
-    //     val |= (b & 0x7F) << shift;
-    //     if (!(b & 0x80)) break;
-    //     shift += 7;
-    // }
-    // if (i == len) return; // not enough data
-    // printf("VarInt = %u (took %d bytes)\n", val, i + 1);
-
+    return 0;
 }
 
 int main() {
@@ -125,6 +164,12 @@ int main() {
     int port;
     char* ports = get_config(c, "server-port");
     sscanf(ports ? ports : "25568", "%i", &port);
+
+    char* temp_fds = get_config(c, "max-fds");
+    sscanf(temp_fds ? temp_fds : "65536", "%i", &max_fds);
+
+    queue = malloc(sizeof(PacketQueue*)*max_fds);
+    fds = malloc(sizeof(Data*)*max_fds);
 
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
@@ -183,7 +228,7 @@ int main() {
     }
 
     printf("Node listening on port %d (EPOLLET, non-blocking, timeout=0)\n", port);
-
+    int ticks = 0;
     while (!exitbool) {
         int nfds = epoll_wait(epoll_fd, events, max_events, 0); // non-blocking!
         if (nfds < 0) {
@@ -207,14 +252,11 @@ int main() {
             }
         }
 
-        // Optionally yield CPU a bit
-        // usleep(1000);
-
-        // Your periodic tasks can go here
-        // http_perform();
-        // auth_loop();
+        if(delay_repeat(0.05, &ticks)) tick();
     }
 
+    free(events);
+    free_config(c);
     http_cleanup();
     close(server_fd);
     close(epoll_fd);

@@ -5,19 +5,13 @@
 #include "h/buffer.h"
 #include <stdint.h>
 #include <sys/epoll.h>
-// #include "player.h"
 
 #define DEFAULT_EPOLL_FLAGS (EPOLLIN | EPOLLET | EPOLLRDHUP)
- // | EPOLLHUP | EPOLLERR)
-#define MAX_FDS 65536
 
-extern PacketQueue* queue[MAX_FDS * 2];
-// extern Player* players[MAX_FDS * 2];
-// extern Player* servers[MAX_FDS * 2];
+extern PacketQueue** queue;
 extern int epoll_fd;
-// extern uint8_t ticking_fds[((MAX_FDS * 2) + 7) / 8];
-// extern int ticking_fdc;
 extern int exitbool;
+extern int max_fds;
 
 typedef struct {
     int from;
@@ -26,7 +20,15 @@ typedef struct {
     Buffer* buf;
 } Packet;
 
-extern Packet* packet_queue;
+typedef struct Data Data;
+struct Data{
+    char* key;
+    char* value;
+    Data* next;
+};
+
+extern Data** fds;
+extern Packet** packet_queue;
 extern int packets;
 
 #define LOG(fmt, ...) printf("[%s:%d] " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)

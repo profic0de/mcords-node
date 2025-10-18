@@ -104,6 +104,8 @@ int free_config(config* config) {
     int nconfigs = config->nconfigs;
 
     for (int i = 0; i < nconfigs; i++) {
+        free(configs[i]->value);
+        free(configs[i]->key);
         free(configs[i]);
     }
     free(configs);

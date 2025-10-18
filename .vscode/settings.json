@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "buffer.h": "c",
-        "packet.h": "c"
+        "packet.h": "c",
+        "globals.h": "c"
     }
 }

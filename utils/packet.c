@@ -2,7 +2,7 @@
 #include "h/packet.h"
 #include <sys/socket.h>
 
-PacketQueue* queue[MAX_FDS * 2];
+PacketQueue** queue;
 
 void packet_queue_init(int fd) {
     PacketQueue *q = queue[fd];
