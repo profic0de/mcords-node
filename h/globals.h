@@ -23,7 +23,7 @@ typedef struct {
 typedef struct Data Data;
 struct Data{
     char* key;
-    char* value;
+    void* ptr;
     Data* next;
 };
 

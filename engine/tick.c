@@ -4,10 +4,10 @@
 #include <malloc.h>
 #include <stdio.h>
 
-// int ticks = 0;
+int ticks = 0;
 
 void tick() {
-    // if (++ticks%100==0) exitbool = 1;
+    if (++ticks%100==0) exitbool = 1;
     Packet** packet_ql = malloc(sizeof(Packet*));
     int packet_l = 0;
     for (int i = 0; i < packets; i++) {

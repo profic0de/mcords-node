@@ -1,4 +1,5 @@
 #include "h/globals.h"
+#include "h/mem.h"
 #include "h/packet.h"
 #include "h/requests.h"
 #include "h/clock.h"
@@ -30,6 +31,18 @@ int free_config(config* config);
 void close_connection(int fd, int epoll_fd) {
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
     close(fd);
+
+    mem_free(fd);
+    Data* block = fds[fd];
+    while (block) {
+        Data* next = block->next;
+        free(block->key);
+        free(block);
+        block = next;
+    }
+    fds[fd] = NULL;
+
+    packet_queue_free(fd);
     printf("Closed connection (fd=%d)\n", fd);
 }
 
@@ -56,6 +69,8 @@ void accept_connection(int server_fd, int epoll_fd) {
         char ip[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &client_addr.sin_addr, ip, sizeof(ip));
         printf("New client connected: %s:%d (fd=%d)\n", ip, ntohs(client_addr.sin_port), client_fd);
+        queue[client_fd] = NULL;
+        fds[client_fd] = NULL;
     }
 }
 
