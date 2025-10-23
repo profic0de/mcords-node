@@ -156,8 +156,8 @@ int handle_packet(int fd, int epoll_fd) {
         }
         if (packet->buf->length == packet->len && packet->state == 0x01) {
             packet->state = 0x00;
-            printf("[fd=%i] Got a minecraft packet:\n",fd);
-            print_hex(packet->buf);
+            // printf("[fd=%i] Got a minecraft packet:\n",fd);
+            // print_hex(packet->buf);
         }
         // if (packet->state == 0x00) break;
     }
@@ -184,7 +184,7 @@ int main() {
     sscanf(temp_fds ? temp_fds : "65536", "%i", &max_fds);
 
     queue = malloc(sizeof(PacketQueue*)*max_fds);
-    fds = malloc(sizeof(Data*)*max_fds);
+    fds = calloc(max_fds, sizeof(Data*));
 
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
@@ -269,6 +269,14 @@ int main() {
 
         if(delay_repeat(0.05, &ticks)) tick();
     }
+
+    for (int i = 0; i < max_fds; i++) {
+        if (fds[i]) {
+            close_connection(i, epoll_fd);
+        }
+    }
+
+    fflush(stdout);
 
     free(events);
     free_config(c);

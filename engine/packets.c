@@ -7,13 +7,14 @@
 #include "h/packet.h"
 
 int process_packet(Packet* packet) {
-    printf("%i\n",fds_incr(packet->from, "count"));
+    print_readable(packet->buf);
+    // printf("%i\n",fds_incr(packet->from, "count"));
 
-    Buffer* buf = init_buffer();
-    build_varint(buf, 0x00);
-    build_string(buf, "{'text':'test'}");
-    packet_send(buf, packet->from);
-    free_buffer(buf);
+    // Buffer* buf = init_buffer();
+    // build_varint(buf, 0x00);
+    // build_string(buf, "{'text':'test'}");
+    // packet_send(buf, packet->from);
+    // free_buffer(buf);
 
     return 0;
 }
