@@ -1,15 +1,6 @@
 {
     "files.associations": {
-        "buffer.h": "c",
-        "packet.h": "c",
-        "globals.h": "c",
-        "common.h": "c",
-        "stdint.h": "c",
-        "fds.h": "c",
-        "stdio.h": "c",
-        "memory.h": "c",
-        "packets.h": "c",
-        "mem.h": "c",
-        "types.h": "c"
+        "*.c": "c",
+        "clock.h": "c"
     }
 }

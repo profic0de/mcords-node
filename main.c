@@ -19,6 +19,8 @@ int epoll_fd;
 int exitbool = 0;
 int max_fds = 0;
 
+// printf("\n");
+
 Data** fds;
 Packet** packet_queue;
 int packets;
